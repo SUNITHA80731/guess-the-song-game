@@ -1487,3 +1487,4 @@ function bindEvents() {
   // Init Firebase in background
   await initFirebase();
 })();
+
