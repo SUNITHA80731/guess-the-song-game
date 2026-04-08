@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Guess the Bollywood Song – A fun and addictive Bollywood music quiz game. Listen to song clips, guess the song, earn points and compete on the leaderboard!" />
+  <meta name="keywords" content="Bollywood, song quiz, music game, Bollywood songs, guess the song" />
+  <meta name="author" content="BollyDoll" />
+  <meta property="og:title" content="🎵 Guess the Bollywood Song" />
+  <meta property="og:description" content="Test your Bollywood knowledge! Listen to clips and guess the song." />
+  <meta property="og:type" content="website" />
+  <title>🎵 Guess the Bollywood Song | BollyDoll</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Confetti library -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, push, query, orderByChild, limitToLast, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    window.__firebaseModules = { initializeApp, getDatabase, ref, push, query, orderByChild, limitToLast, onValue };
+  </script>
+
+  <!-- YouTube IFrame API -->
+  <script src="https://www.youtube.com/iframe_api"></script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Animated background blobs -->
+  <div class="bg-blob blob-1"></div>
+  <div class="bg-blob blob-2"></div>
+  <div class="bg-blob blob-3"></div>
+
+  <!-- ═══════════════════ SCREEN: LANDING ═══════════════════ -->
+  <div id="screen-landing" class="screen active">
+    <div class="landing-card glass-card">
+      <div class="landing-logo">🎵</div>
+      <h1 class="landing-title">BollyDoll</h1>
+      <p class="landing-subtitle">Guess the Bollywood Song</p>
+      <p class="landing-desc">Listen to iconic Bollywood clips and test your music knowledge. 10 songs · 100 points max · Real-time leaderboard!</p>
+
+      <div class="feature-pills">
+        <span class="pill">🎧 Audio Clips</span>
+        <span class="pill">🏆 Leaderboard</span>
+        <span class="pill">🎉 Animations</span>
+        <span class="pill">📱 Responsive</span>
+      </div>
+
+      <div class="difficulty-section">
+        <p class="section-label">Select Difficulty</p>
+        <div class="difficulty-buttons" id="difficulty-buttons">
+          <button class="diff-btn active" data-diff="easy" id="btn-easy">🟢 Easy</button>
+          <button class="diff-btn" data-diff="medium" id="btn-medium">🟡 Medium</button>
+          <button class="diff-btn" data-diff="hard" id="btn-hard">🔴 Hard</button>
+        </div>
+      </div>
+
+      <button id="btn-start-game" class="btn-primary pulse-btn">
+        <span>Start Game</span>
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+      </button>
+
+      <button id="btn-view-leaderboard" class="btn-secondary">
+        🏆 View Leaderboard
+      </button>
+
+      <!-- Dark mode toggle -->
+      <button id="dark-mode-toggle" class="dark-toggle" title="Toggle Dark Mode">🌙</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SCREEN: GAME ═══════════════════ -->
+  <div id="screen-game" class="screen">
+    <div class="game-container">
+
+      <!-- Header -->
+      <div class="game-header glass-card">
+        <div class="game-meta">
+          <span class="meta-label">Question</span>
+          <span class="meta-value" id="question-counter">1 / 10</span>
+        </div>
+        <div class="game-score-display">
+          <span class="meta-label">Score</span>
+          <span class="meta-value score-value" id="score-display">0</span>
+        </div>
+        <div class="game-meta">
+          <span class="meta-label">Difficulty</span>
+          <span class="meta-value diff-badge" id="diff-badge">Easy</span>
+        </div>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="progress-wrap">
+        <div class="progress-track">
+          <div class="progress-fill" id="progress-fill" style="width:10%"></div>
+        </div>
+        <span class="progress-text" id="progress-text">1 / 10</span>
+      </div>
+
+      <!-- Song card -->
+      <div class="song-card glass-card">
+        <!-- Waveform visual -->
+        <div class="waveform-wrap">
+          <div class="waveform" id="waveform">
+            <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+            <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+            <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+            <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+            <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+          </div>
+        </div>
+
+        <!-- Audio player container (hidden YouTube iframe) -->
+        <div style="position: absolute; width: 0; height: 0; overflow: hidden; opacity: 0; pointer-events: none;">
+          <div id="yt-player"></div>
+        </div>
+
+        <!-- Play/Pause button -->
+        <button id="btn-play-song" class="btn-play">
+          <span id="play-icon">
+            <svg width="28" height="28" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          </span>
+          <span id="play-label">Play Clip</span>
+        </button>
+
+        <!-- Timer bar -->
+        <div class="timer-wrap">
+          <div class="timer-track">
+            <div class="timer-fill" id="timer-fill"></div>
+          </div>
+          <span class="timer-text" id="timer-text">--</span>
+        </div>
+
+        <!-- Hint -->
+        <div class="hint-wrap" id="hint-wrap" style="display:none">
+          <span class="hint-label">💡 Hint:</span>
+          <span class="hint-text" id="hint-text"></span>
+        </div>
+
+        <!-- Guess input -->
+        <div class="input-section">
+          <div class="input-wrap">
+            <input
+              type="text"
+              id="guess-input"
+              placeholder="Listen first, then type the lyrics..."
+              autocomplete="off"
+              spellcheck="false"
+              maxlength="80"
+            />
+            <div class="input-glow"></div>
+          </div>
+
+          <div class="action-buttons">
+            <button id="btn-hint" class="btn-hint" title="Get a hint (costs 2 points)">
+              💡 Hint <span class="hint-cost">-2pts</span>
+            </button>
+            <button id="btn-options" class="btn-secondary" title="Show 4 answer options">
+              🔘 Options
+            </button>
+            <button id="btn-submit" class="btn-primary">Submit Lyrics ✔</button>
+            <button id="btn-skip" class="btn-skip">Skip ⏭</button>
+          </div>
+          <div id="mcq-wrap" style="display:none; margin-top: 12px; gap: 8px; grid-template-columns: 1fr 1fr;"></div>
+        </div>
+
+        <!-- Feedback -->
+        <div id="feedback-box" class="feedback-box" style="display:none">
+          <div class="feedback-icon" id="feedback-icon"></div>
+          <div class="feedback-text" id="feedback-text"></div>
+          <div class="correct-answer" id="correct-answer-reveal" style="display:none">
+            🎵 Answer: <strong id="correct-answer-text"></strong>
+          </div>
+          <button id="btn-next" class="btn-primary btn-next">
+            Next Song ➜
+          </button>
+        </div>
+      </div>
+
+      <!-- Quit game -->
+      <button id="btn-quit" class="btn-quit">✕ Quit Game</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SCREEN: GAME OVER ═══════════════════ -->
+  <div id="screen-gameover" class="screen">
+    <div class="gameover-card glass-card">
+      <div class="gameover-trophy" id="gameover-trophy">🏆</div>
+      <h2 class="gameover-title">Game Over!</h2>
+      <p class="gameover-subtitle" id="gameover-subtitle">Amazing performance!</p>
+
+      <div class="final-score-wrap">
+        <span class="final-score-label">Your Score</span>
+        <span class="final-score-value" id="final-score-value">0</span>
+        <span class="final-score-max">/ 100</span>
+      </div>
+
+      <div class="score-breakdown" id="score-breakdown"></div>
+
+      <!-- Save score form -->
+      <div class="save-score-section" id="save-score-section">
+        <p class="save-title">Save your score to the leaderboard!</p>
+        <div class="input-wrap">
+          <input type="text" id="player-name-input" placeholder="Enter your name..." maxlength="20" autocomplete="off" />
+        </div>
+        <button id="btn-save-score" class="btn-primary">
+          💾 Save Score
+        </button>
+        <p class="save-note" id="save-note"></p>
+      </div>
+
+      <!-- Share -->
+      <div class="share-section">
+        <p class="section-label">Share your score</p>
+        <div class="share-buttons">
+          <button id="btn-share-whatsapp" class="btn-share btn-whatsapp">📱 WhatsApp</button>
+          <button id="btn-share-copy" class="btn-share btn-copy">📋 Copy Link</button>
+        </div>
+      </div>
+
+      <div class="gameover-actions">
+        <button id="btn-play-again" class="btn-primary">🎮 Play Again</button>
+        <button id="btn-goto-leaderboard" class="btn-secondary">🏆 Leaderboard</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ SCREEN: LEADERBOARD ═══════════════════ -->
+  <div id="screen-leaderboard" class="screen">
+    <div class="leaderboard-container">
+      <div class="leaderboard-header glass-card">
+        <div class="lb-title-wrap">
+          <span class="lb-crown">👑</span>
+          <h2 class="lb-title">Hall of Fame</h2>
+          <span class="lb-crown">👑</span>
+        </div>
+        <p class="lb-subtitle">Top 10 BollyDoll Champions</p>
+        <div class="lb-refresh-info">
+          <span class="refresh-dot" id="refresh-dot"></span>
+          <span id="refresh-label">Live · Auto-refreshing</span>
+        </div>
+      </div>
+
+      <!-- Top 3 Podium (optional visual) -->
+      <div class="podium-wrap" id="podium-wrap"></div>
+
+      <!-- Leaderboard table -->
+      <div class="lb-table-wrap glass-card">
+        <div class="lb-table-header">
+          <span class="lb-col-rank">Rank</span>
+          <span class="lb-col-name">Player</span>
+          <span class="lb-col-score">Score</span>
+          <span class="lb-col-date">Date</span>
+        </div>
+        <div id="leaderboard-list" class="lb-list">
+          <div class="lb-loading">
+            <div class="spinner"></div>
+            <span>Loading scores...</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="leaderboard-actions">
+        <button id="btn-lb-play" class="btn-primary">🎮 Play Now</button>
+        <button id="btn-lb-back" class="btn-secondary">← Back</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div id="toast" class="toast" role="alert"></div>
+
+  <script src="script.js" type="module"></script>
+</body>
+</html>
